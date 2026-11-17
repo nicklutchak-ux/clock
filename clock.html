@@ -13,19 +13,47 @@ html,body{margin:0;height:100%;background:#000;color:#e8e8e8;overflow:hidden;
   -webkit-flex-direction:column;flex-direction:column;-webkit-justify-content:center;justify-content:center;
   -webkit-align-items:center;align-items:center;text-align:center;
   -webkit-transition:opacity 2s;transition:opacity 2s}
-#time{font-weight:100;font-size:30vmax;line-height:1;letter-spacing:-0.02em}
-#date{font-weight:300;font-size:4vmax;margin-top:2vmax;color:#9a9a9a}
-#now{margin-top:6vmax;font-weight:200;font-size:7vmax;line-height:1}
-#now small{display:block;font-size:2.6vmax;font-weight:300;color:#9a9a9a;margin-top:1vmax}
-#days{margin-top:5vmax;display:-webkit-flex;display:flex}
-.d{margin:0 3vmax;font-size:2.4vmax;font-weight:300;color:#9a9a9a}
-.d b{display:block;font-weight:300;color:#e8e8e8;font-size:2.8vmax;margin-top:0.6vmax}
-#err{position:absolute;bottom:1vmax;left:0;right:0;text-align:center;font-size:1.6vmax;color:#444}
+
+/* ---- перекидний годинник ---- */
+#cards{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center}
+.card{position:relative;width:20vmin;height:28vmin;margin:0 0.7vmin;
+  -webkit-perspective:70vmin;perspective:70vmin}
+.card:after{content:"";position:absolute;left:0;right:0;top:50%;height:0.5vmin;margin-top:-0.25vmin;
+  background:#000;z-index:5}
+.half,.flap{position:absolute;left:0;right:0;height:50%;overflow:hidden;color:#f2f2f2}
+.top,.ft{top:0;background:#1f1f1f;border-radius:1.6vmin 1.6vmin 0 0}
+.bot,.fb{bottom:0;background:#181818;border-radius:0 0 1.6vmin 1.6vmin}
+.half span,.flap span{position:absolute;left:0;right:0;height:28vmin;line-height:28vmin;
+  font-size:24vmin;font-weight:700;text-align:center}
+.top span,.ft span{top:0}
+.bot span,.fb span{bottom:0}
+.flap{display:none;z-index:3;-webkit-backface-visibility:hidden;backface-visibility:hidden}
+.ft{-webkit-transform-origin:50% 100%;transform-origin:50% 100%}
+.fb{-webkit-transform-origin:50% 0;transform-origin:50% 0;
+  -webkit-transform:rotateX(90deg);transform:rotateX(90deg)}
+.go .ft{display:block;-webkit-animation:ftop .3s ease-in both;animation:ftop .3s ease-in both}
+.go .fb{display:block;-webkit-animation:fbot .3s ease-out .3s both;animation:fbot .3s ease-out .3s both}
+@-webkit-keyframes ftop{from{-webkit-transform:rotateX(0)}to{-webkit-transform:rotateX(-90deg)}}
+@keyframes ftop{from{transform:rotateX(0)}to{transform:rotateX(-90deg)}}
+@-webkit-keyframes fbot{from{-webkit-transform:rotateX(90deg)}to{-webkit-transform:rotateX(0)}}
+@keyframes fbot{from{transform:rotateX(90deg)}to{transform:rotateX(0)}}
+.sep{width:3vmin;height:11vmin;margin:0 0.6vmin;position:relative}
+.sep:before,.sep:after{content:"";position:absolute;left:50%;width:1.6vmin;height:1.6vmin;
+  margin-left:-0.8vmin;border-radius:50%;background:#f2f2f2}
+.sep:before{top:2.5vmin}.sep:after{bottom:2.5vmin}
+
+#date{font-weight:300;font-size:3.8vmin;margin-top:5vmin;color:#9a9a9a}
+#now{margin-top:4vmin;font-weight:300;font-size:7vmin;line-height:1}
+#now small{display:block;font-size:2.8vmin;font-weight:300;color:#9a9a9a;margin-top:1vmin}
+#days{margin-top:4vmin;display:-webkit-flex;display:flex}
+.d{margin:0 3vmin;font-size:2.4vmin;font-weight:300;color:#9a9a9a}
+.d b{display:block;font-weight:400;color:#e8e8e8;font-size:2.8vmin;margin-top:0.6vmin}
+#err{position:absolute;bottom:1vmin;left:0;right:0;text-align:center;font-size:1.6vmin;color:#444}
 </style>
 </head>
 <body>
 <div id="wrap">
-  <div id="time">--:--</div>
+  <div id="cards"></div>
   <div id="date"></div>
   <div id="now"><span id="icon"></span> <span id="temp">--</span>
     <small id="desc"></small></div>
@@ -34,12 +62,7 @@ html,body{margin:0;height:100%;background:#000;color:#e8e8e8;overflow:hidden;
 <div id="err"></div>
 
 <script>
-// ---- Налаштування ----
-var LAT = 49.50;   // приблизно Самбірський район; за потреби уточніть
-var LON = 23.20;
-var TZ  = "Europe/Kyiv";
 var NIGHT_FROM = 22, NIGHT_TO = 6;   // нічний режим: приглушення
-// ----------------------
 
 var DAYS = ["неділя","понеділок","вівторок","середа","четвер","пʼятниця","субота"];
 var DAYS_SHORT = ["нд","пн","вт","ср","чт","пт","сб"];
@@ -48,6 +71,38 @@ var MONTHS = ["січня","лютого","березня","квітня","тр�
 
 function pad(n){ return n < 10 ? "0" + n : "" + n; }
 function $(id){ return document.getElementById(id); }
+
+/* ---- картки ---- */
+var cards = [];
+(function build(){
+  var box = $("cards"), i, c, s;
+  for (i = 0; i < 4; i++) {
+    if (i === 2) { s = document.createElement("div"); s.className = "sep"; box.appendChild(s); }
+    c = document.createElement("div");
+    c.className = "card";
+    c.innerHTML = '<div class="half top"><span></span></div><div class="half bot"><span></span></div>' +
+      '<div class="flap ft"><span></span></div><div class="flap fb"><span></span></div>';
+    box.appendChild(c);
+    cards.push(c);
+  }
+})();
+
+function q(c, sel){ return c.querySelector(sel); }
+function setDigit(c, v){
+  if (c._v === undefined) {
+    q(c, ".top span").textContent = v; q(c, ".bot span").textContent = v;
+    q(c, ".ft span").textContent = v;  q(c, ".fb span").textContent = v;
+    c._v = v; return;
+  }
+  if (c._v === v) return;
+  var old = c._v; c._v = v;
+  q(c, ".top span").textContent = v;
+  q(c, ".ft span").textContent = old;
+  q(c, ".fb span").textContent = v;
+  c.className = "card"; void c.offsetWidth; c.className = "card go";
+  clearTimeout(c._t);
+  c._t = setTimeout(function(){ q(c, ".bot span").textContent = v; c.className = "card"; }, 700);
+}
 
 function codeInfo(c){
   if (c === 0) return ["☀️","Ясно"];
@@ -64,87 +119,31 @@ function codeInfo(c){
 }
 
 function tick(){
-  var d = new Date();
-  $("time").innerHTML = pad(d.getHours()) + ":" + pad(d.getMinutes());
+  var d = new Date(), h = pad(d.getHours()), m = pad(d.getMinutes());
+  setDigit(cards[0], h.charAt(0)); setDigit(cards[1], h.charAt(1));
+  setDigit(cards[2], m.charAt(0)); setDigit(cards[3], m.charAt(1));
   $("date").innerHTML = DAYS[d.getDay()] + ", " + d.getDate() + " " + MONTHS[d.getMonth()];
-  var h = d.getHours();
-  var night = (NIGHT_FROM > NIGHT_TO) ? (h >= NIGHT_FROM || h < NIGHT_TO) : (h >= NIGHT_FROM && h < NIGHT_TO);
+  var hr = d.getHours();
+  var night = (NIGHT_FROM > NIGHT_TO) ? (hr >= NIGHT_FROM || hr < NIGHT_TO) : (hr >= NIGHT_FROM && hr < NIGHT_TO);
   $("wrap").style.opacity = night ? "0.35" : "1";
 }
 
 function round(n){ return Math.round(n); }
 function sign(n){ n = round(n); return (n > 0 ? "+" : "") + n + "°"; }
 
-function metnoCode(s){
-  s = s.split("_")[0];
-  if (s.indexOf("thunder") >= 0) return 95;
-  if (s.indexOf("snow") >= 0) return 71;
-  if (s.indexOf("sleet") >= 0) return 67;
-  if (s.indexOf("rain") >= 0) return 61;
-  if (s === "fog") return 45;
-  if (s === "cloudy") return 3;
-  if (s === "clearsky") return 0;
-  return 2;
-}
-
-// Провайдери: кожен повертає дані у спільному вигляді
-var PROVIDERS = [
-  { name: "weather.json",
-    url: "weather.json?t=" + new Date().getTime(),
-    parse: function(j){ return j; } },
-  { name: "met.no",
-    url: "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=" + LAT + "&lon=" + LON,
-    parse: function(j){
-      var ts = j.properties.timeseries, i, t, d, key, byDay = {}, order = [];
-      var first = ts[0].data;
-      var sym = (first.next_1_hours || first.next_6_hours || first.next_12_hours).summary.symbol_code;
-      for (i = 0; i < ts.length; i++) {
-        t = ts[i];
-        d = new Date(t.time);
-        key = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
-        if (!byDay[key]) { byDay[key] = {min: 99, max: -99, sym: null}; order.push(key); }
-        var tt = t.data.instant.details.air_temperature;
-        if (tt < byDay[key].min) byDay[key].min = tt;
-        if (tt > byDay[key].max) byDay[key].max = tt;
-        if (d.getHours() >= 11 && d.getHours() <= 14 && !byDay[key].sym && t.data.next_6_hours)
-          byDay[key].sym = t.data.next_6_hours.summary.symbol_code;
-      }
-      var out = {current: {temperature_2m: first.instant.details.air_temperature, weather_code: metnoCode(sym)},
-        daily: {time: [], weather_code: [], temperature_2m_max: [], temperature_2m_min: []}};
-      for (i = 0; i < order.length && i < 4; i++) {
-        var o = byDay[order[i]];
-        out.daily.time.push(order[i]);
-        out.daily.weather_code.push(metnoCode(o.sym || "partlycloudy"));
-        out.daily.temperature_2m_max.push(o.max);
-        out.daily.temperature_2m_min.push(o.min);
-      }
-      return out;
-    } }
-];
-
-var errs = [];
-function loadWeather(n){
-  n = n || 0;
-  if (n === 0) errs = [];
-  var p = PROVIDERS[n];
+function loadWeather(){
   var x = new XMLHttpRequest();
-  x.open("GET", p.url, true);
+  x.open("GET", "weather.json?t=" + new Date().getTime(), true);
   x.timeout = 20000;
   x.onreadystatechange = function(){
     if (x.readyState !== 4) return;
-    var ok = false;
     if (x.status === 200) {
-      try { render(p.parse(JSON.parse(x.responseText))); ok = true; $("err").innerHTML = ""; }
-      catch (e) { errs.push(p.name + ": помилка даних"); }
+      try { render(JSON.parse(x.responseText)); $("err").innerHTML = ""; }
+      catch (e) { $("err").innerHTML = "помилка даних погоди"; }
     } else {
-      errs.push(p.name + ": код " + x.status);
-    }
-    if (!ok) {
-      if (n + 1 < PROVIDERS.length) { loadWeather(n + 1); }
-      else { $("err").innerHTML = "немає звʼязку з погодою (" + errs.join("; ") + ")"; }
+      $("err").innerHTML = "немає звʼязку з погодою (код " + x.status + ")";
     }
   };
-  x.onerror = function(){};
   x.send();
 }
 
@@ -153,9 +152,9 @@ function render(w){
   $("icon").innerHTML = cur[0];
   $("temp").innerHTML = sign(w.current.temperature_2m);
   $("desc").innerHTML = cur[1];
-  var html = "", i, dt, info;
+  var html = "", i, dt, info, p;
   for (i = 1; i < w.daily.time.length; i++) {
-    var p = w.daily.time[i].split("-");
+    p = w.daily.time[i].split("-");
     dt = new Date(+p[0], +p[1] - 1, +p[2]);
     info = codeInfo(w.daily.weather_code[i]);
     html += '<div class="d">' + DAYS_SHORT[dt.getDay()] + '<b>' + info[0] + ' ' +
@@ -167,7 +166,7 @@ function render(w){
 tick();
 setInterval(tick, 1000);
 loadWeather();
-setInterval(function(){ loadWeather(0); }, 20 * 60 * 1000);
+setInterval(loadWeather, 10 * 60 * 1000);
 </script>
 </body>
 </html>
