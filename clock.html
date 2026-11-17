@@ -75,22 +75,78 @@ function tick(){
 function round(n){ return Math.round(n); }
 function sign(n){ n = round(n); return (n > 0 ? "+" : "") + n + "°"; }
 
-function loadWeather(){
-  var url = "https://api.open-meteo.com/v1/forecast?latitude=" + LAT + "&longitude=" + LON +
-    "&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min" +
-    "&timezone=" + encodeURIComponent(TZ) + "&forecast_days=4";
+function metnoCode(s){
+  s = s.split("_")[0];
+  if (s.indexOf("thunder") >= 0) return 95;
+  if (s.indexOf("snow") >= 0) return 71;
+  if (s.indexOf("sleet") >= 0) return 67;
+  if (s.indexOf("rain") >= 0) return 61;
+  if (s === "fog") return 45;
+  if (s === "cloudy") return 3;
+  if (s === "clearsky") return 0;
+  return 2;
+}
+
+// Провайдери: кожен повертає дані у спільному вигляді
+var PROVIDERS = [
+  { name: "open-meteo",
+    url: "https://api.open-meteo.com/v1/forecast?latitude=" + LAT + "&longitude=" + LON +
+      "&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min" +
+      "&timezone=" + encodeURIComponent(TZ) + "&forecast_days=4",
+    parse: function(j){ return j; } },
+  { name: "met.no",
+    url: "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=" + LAT + "&lon=" + LON,
+    parse: function(j){
+      var ts = j.properties.timeseries, i, t, d, key, byDay = {}, order = [];
+      var first = ts[0].data;
+      var sym = (first.next_1_hours || first.next_6_hours || first.next_12_hours).summary.symbol_code;
+      for (i = 0; i < ts.length; i++) {
+        t = ts[i];
+        d = new Date(t.time);
+        key = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+        if (!byDay[key]) { byDay[key] = {min: 99, max: -99, sym: null}; order.push(key); }
+        var tt = t.data.instant.details.air_temperature;
+        if (tt < byDay[key].min) byDay[key].min = tt;
+        if (tt > byDay[key].max) byDay[key].max = tt;
+        if (d.getHours() >= 11 && d.getHours() <= 14 && !byDay[key].sym && t.data.next_6_hours)
+          byDay[key].sym = t.data.next_6_hours.summary.symbol_code;
+      }
+      var out = {current: {temperature_2m: first.instant.details.air_temperature, weather_code: metnoCode(sym)},
+        daily: {time: [], weather_code: [], temperature_2m_max: [], temperature_2m_min: []}};
+      for (i = 0; i < order.length && i < 4; i++) {
+        var o = byDay[order[i]];
+        out.daily.time.push(order[i]);
+        out.daily.weather_code.push(metnoCode(o.sym || "partlycloudy"));
+        out.daily.temperature_2m_max.push(o.max);
+        out.daily.temperature_2m_min.push(o.min);
+      }
+      return out;
+    } }
+];
+
+var errs = [];
+function loadWeather(n){
+  n = n || 0;
+  if (n === 0) errs = [];
+  var p = PROVIDERS[n];
   var x = new XMLHttpRequest();
-  x.open("GET", url, true);
+  x.open("GET", p.url, true);
   x.timeout = 20000;
   x.onreadystatechange = function(){
     if (x.readyState !== 4) return;
+    var ok = false;
     if (x.status === 200) {
-      try { render(JSON.parse(x.responseText)); $("err").innerHTML = ""; }
-      catch (e) { $("err").innerHTML = "помилка даних"; }
+      try { render(p.parse(JSON.parse(x.responseText))); ok = true; $("err").innerHTML = ""; }
+      catch (e) { errs.push(p.name + ": помилка даних"); }
     } else {
-      $("err").innerHTML = "немає звʼязку з погодою";
+      errs.push(p.name + ": код " + x.status);
+    }
+    if (!ok) {
+      if (n + 1 < PROVIDERS.length) { loadWeather(n + 1); }
+      else { $("err").innerHTML = "немає звʼязку з погодою (" + errs.join("; ") + ")"; }
     }
   };
+  x.onerror = function(){};
   x.send();
 }
 
@@ -113,7 +169,7 @@ function render(w){
 tick();
 setInterval(tick, 1000);
 loadWeather();
-setInterval(loadWeather, 20 * 60 * 1000);
+setInterval(function(){ loadWeather(0); }, 20 * 60 * 1000);
 </script>
 </body>
 </html>
