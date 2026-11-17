@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Годинник</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<style>
+html,body{margin:0;height:100%;background:#000;color:#e8e8e8;overflow:hidden;
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-user-select:none}
+#wrap{position:absolute;top:0;left:0;right:0;bottom:0;display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;-webkit-justify-content:center;justify-content:center;
+  -webkit-align-items:center;align-items:center;text-align:center;
+  -webkit-transition:opacity 2s;transition:opacity 2s}
+#time{font-weight:100;font-size:30vmax;line-height:1;letter-spacing:-0.02em}
+#date{font-weight:300;font-size:4vmax;margin-top:2vmax;color:#9a9a9a}
+#now{margin-top:6vmax;font-weight:200;font-size:7vmax;line-height:1}
+#now small{display:block;font-size:2.6vmax;font-weight:300;color:#9a9a9a;margin-top:1vmax}
+#days{margin-top:5vmax;display:-webkit-flex;display:flex}
+.d{margin:0 3vmax;font-size:2.4vmax;font-weight:300;color:#9a9a9a}
+.d b{display:block;font-weight:300;color:#e8e8e8;font-size:2.8vmax;margin-top:0.6vmax}
+#err{position:absolute;bottom:1vmax;left:0;right:0;text-align:center;font-size:1.6vmax;color:#444}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="time">--:--</div>
+  <div id="date"></div>
+  <div id="now"><span id="icon"></span> <span id="temp">--</span>
+    <small id="desc"></small></div>
+  <div id="days"></div>
+</div>
+<div id="err"></div>
+
+<script>
+// ---- Налаштування ----
+var LAT = 49.50;   // приблизно Самбірський район; за потреби уточніть
+var LON = 23.20;
+var TZ  = "Europe/Kyiv";
+var NIGHT_FROM = 22, NIGHT_TO = 6;   // нічний режим: приглушення
+// ----------------------
+
+var DAYS = ["неділя","понеділок","вівторок","середа","четвер","пʼятниця","субота"];
+var DAYS_SHORT = ["нд","пн","вт","ср","чт","пт","сб"];
+var MONTHS = ["січня","лютого","березня","квітня","травня","червня","липня",
+  "серпня","вересня","жовтня","листопада","грудня"];
+
+function pad(n){ return n < 10 ? "0" + n : "" + n; }
+function $(id){ return document.getElementById(id); }
+
+function codeInfo(c){
+  if (c === 0) return ["☀️","Ясно"];
+  if (c <= 2) return ["🌤","Мінлива хмарність"];
+  if (c === 3) return ["☁️","Хмарно"];
+  if (c === 45 || c === 48) return ["🌫","Туман"];
+  if (c >= 51 && c <= 57) return ["🌦","Мряка"];
+  if (c >= 61 && c <= 67) return ["🌧","Дощ"];
+  if (c >= 71 && c <= 77) return ["❄️","Сніг"];
+  if (c >= 80 && c <= 82) return ["🌧","Злива"];
+  if (c === 85 || c === 86) return ["❄️","Снігопад"];
+  if (c >= 95) return ["⛈","Гроза"];
+  return ["·",""];
+}
+
+function tick(){
+  var d = new Date();
+  $("time").innerHTML = pad(d.getHours()) + ":" + pad(d.getMinutes());
+  $("date").innerHTML = DAYS[d.getDay()] + ", " + d.getDate() + " " + MONTHS[d.getMonth()];
+  var h = d.getHours();
+  var night = (NIGHT_FROM > NIGHT_TO) ? (h >= NIGHT_FROM || h < NIGHT_TO) : (h >= NIGHT_FROM && h < NIGHT_TO);
+  $("wrap").style.opacity = night ? "0.35" : "1";
+}
+
+function round(n){ return Math.round(n); }
+function sign(n){ n = round(n); return (n > 0 ? "+" : "") + n + "°"; }
+
+function loadWeather(){
+  var url = "https://api.open-meteo.com/v1/forecast?latitude=" + LAT + "&longitude=" + LON +
+    "&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min" +
+    "&timezone=" + encodeURIComponent(TZ) + "&forecast_days=4";
+  var x = new XMLHttpRequest();
+  x.open("GET", url, true);
+  x.timeout = 20000;
+  x.onreadystatechange = function(){
+    if (x.readyState !== 4) return;
+    if (x.status === 200) {
+      try { render(JSON.parse(x.responseText)); $("err").innerHTML = ""; }
+      catch (e) { $("err").innerHTML = "помилка даних"; }
+    } else {
+      $("err").innerHTML = "немає звʼязку з погодою";
+    }
+  };
+  x.send();
+}
+
+function render(w){
+  var cur = codeInfo(w.current.weather_code);
+  $("icon").innerHTML = cur[0];
+  $("temp").innerHTML = sign(w.current.temperature_2m);
+  $("desc").innerHTML = cur[1];
+  var html = "", i, dt, info;
+  for (i = 1; i < w.daily.time.length; i++) {
+    var p = w.daily.time[i].split("-");
+    dt = new Date(+p[0], +p[1] - 1, +p[2]);
+    info = codeInfo(w.daily.weather_code[i]);
+    html += '<div class="d">' + DAYS_SHORT[dt.getDay()] + '<b>' + info[0] + ' ' +
+      sign(w.daily.temperature_2m_max[i]) + ' / ' + sign(w.daily.temperature_2m_min[i]) + '</b></div>';
+  }
+  $("days").innerHTML = html;
+}
+
+tick();
+setInterval(tick, 1000);
+loadWeather();
+setInterval(loadWeather, 20 * 60 * 1000);
+</script>
+</body>
+</html>
