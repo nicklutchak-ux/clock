@@ -89,10 +89,8 @@ function metnoCode(s){
 
 // Провайдери: кожен повертає дані у спільному вигляді
 var PROVIDERS = [
-  { name: "open-meteo",
-    url: "https://api.open-meteo.com/v1/forecast?latitude=" + LAT + "&longitude=" + LON +
-      "&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min" +
-      "&timezone=" + encodeURIComponent(TZ) + "&forecast_days=4",
+  { name: "weather.json",
+    url: "weather.json?t=" + new Date().getTime(),
     parse: function(j){ return j; } },
   { name: "met.no",
     url: "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=" + LAT + "&lon=" + LON,
