@@ -16,15 +16,15 @@ html,body{margin:0;height:100%;background:#000;color:#e8e8e8;overflow:hidden;
 
 /* ---- перекидний годинник ---- */
 #cards{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center}
-.card{position:relative;width:20vmin;height:28vmin;margin:0 0.7vmin;
+.card{position:relative;width:21vmin;height:34vmin;margin:0 0.5vmin;
   -webkit-perspective:70vmin;perspective:70vmin}
 .card:after{content:"";position:absolute;left:0;right:0;top:50%;height:0.5vmin;margin-top:-0.25vmin;
   background:#000;z-index:5}
 .half,.flap{position:absolute;left:0;right:0;height:50%;overflow:hidden;color:#f2f2f2}
 .top,.ft{top:0;background:#1f1f1f;border-radius:1.6vmin 1.6vmin 0 0}
 .bot,.fb{bottom:0;background:#181818;border-radius:0 0 1.6vmin 1.6vmin}
-.half span,.flap span{position:absolute;left:0;right:0;height:28vmin;line-height:28vmin;
-  font-size:24vmin;font-weight:700;text-align:center}
+.half span,.flap span{position:absolute;left:0;right:0;height:34vmin;line-height:34vmin;
+  font-size:30vmin;font-weight:700;text-align:center}
 .top span,.ft span{top:0}
 .bot span,.fb span{bottom:0}
 .flap{display:none;z-index:3;-webkit-backface-visibility:hidden;backface-visibility:hidden}
@@ -37,18 +37,28 @@ html,body{margin:0;height:100%;background:#000;color:#e8e8e8;overflow:hidden;
 @keyframes ftop{from{transform:rotateX(0)}to{transform:rotateX(-90deg)}}
 @-webkit-keyframes fbot{from{-webkit-transform:rotateX(90deg)}to{-webkit-transform:rotateX(0)}}
 @keyframes fbot{from{transform:rotateX(90deg)}to{transform:rotateX(0)}}
-.sep{width:3vmin;height:11vmin;margin:0 0.6vmin;position:relative}
+.sep{width:3vmin;height:14vmin;margin:0 0.4vmin;position:relative}
 .sep:before,.sep:after{content:"";position:absolute;left:50%;width:1.6vmin;height:1.6vmin;
   margin-left:-0.8vmin;border-radius:50%;background:#f2f2f2}
 .sep:before{top:2.5vmin}.sep:after{bottom:2.5vmin}
 
-#date{font-weight:300;font-size:3.8vmin;margin-top:5vmin;color:#9a9a9a}
+#date{font-weight:300;font-size:3.8vmin;margin-top:4vmin;color:#9a9a9a}
 #now{margin-top:4vmin;font-weight:300;font-size:7vmin;line-height:1}
 #now small{display:block;font-size:2.8vmin;font-weight:300;color:#9a9a9a;margin-top:1vmin}
 #days{margin-top:4vmin;display:-webkit-flex;display:flex}
 .d{margin:0 3vmin;font-size:2.4vmin;font-weight:300;color:#9a9a9a}
 .d b{display:block;font-weight:400;color:#e8e8e8;font-size:2.8vmin;margin-top:0.6vmin}
 #err{position:absolute;bottom:1vmin;left:0;right:0;text-align:center;font-size:1.6vmin;color:#444}
+@media (orientation:landscape){
+  .card{width:26vmin;height:40vmin;margin:0 0.6vmin;-webkit-perspective:90vmin;perspective:90vmin}
+  .half span,.flap span{height:40vmin;line-height:40vmin;font-size:36vmin}
+  .sep{width:4vmin;height:16vmin}
+  .sep:before,.sep:after{width:2vmin;height:2vmin;margin-left:-1vmin}
+  .sep:before{top:3vmin}.sep:after{bottom:3vmin}
+  #date{margin-top:3vmin}
+  #now{margin-top:3vmin}
+  #days{margin-top:3vmin}
+}
 </style>
 </head>
 <body>
